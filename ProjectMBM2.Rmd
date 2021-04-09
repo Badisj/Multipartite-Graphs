@@ -1,0 +1,319 @@
+---
+title: "ProjectMBM"
+author: "Alya Ben Abdallah & Badis Jaouani"
+date: "4/6/2021"
+output: 
+  html_document: 
+    highlight: textmate
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+```
+
+
+```{r}
+# Chargement des libraires et des données
+library('GREMLINS')
+library('igraph')
+load("MPEcoNetwork.rda")
+
+# nombre d'éléments de la liste
+paste("nombre de matrices d'interactions:", length(MPEcoNetwork))
+# noms des éléments
+print("noms des matrices d'interaction: ")
+names(MPEcoNetwork)
+#aperçu du début de la matrice X13
+print("Début de la première matrice d'intéraction plante-fourmis:")
+MPEcoNetwork[[1]][1:5,1:3]
+```
+
+```{r, echo=FALSE}
+# Construction des données
+plant.ant = defineNetwork(MPEcoNetwork$Inc_plant_ant, 
+                          typeInter = 'inc',
+                          rowFG = 'plants',
+                          colFG = 'ants')
+
+plant.bird = defineNetwork(MPEcoNetwork$Inc_plant_bird, 
+                           typeInter = 'inc',
+                           rowFG = 'plants',
+                           colFG = 'birds')
+
+plant.flov = defineNetwork(MPEcoNetwork$Inc_plant_flovis, 
+                           typeInter = 'inc',
+                           rowFG = 'plants',
+                           colFG = 'flovis')
+
+lis = list(plant.flov, plant.ant, plant.bird)
+```
+
+```{r}
+# Sélection du nombre de cluster avec l'algorithme ICL
+res = multipartiteBM(lis, 
+                     v_distrib = c('bernoulli', 'bernoulli', 'bernoulli'),
+                     initBM = TRUE,
+                     keep = TRUE,
+                     verbose = TRUE)
+```
+
+
+```{r}
+# Resulting ICL values
+ICL = numeric(length = length(res$fittedModel))
+for (i in 1:length(res$fittedModel)){
+  ICL[i] = res$fittedModel[[i]]$ICL
+}
+ICL = sort(ICL)
+
+par(cex = .7)
+plot(ICL, main = "Valeurs de l'ICL à chaque itéraction",
+     xlab = 'itération',
+     ylab = 'ICL',
+     pch = 19,
+     type="o")
+```
+
+```{r}
+# liste du nombre de clusters du meilleur modèle
+cat("Nombre de clusters du meilleur modèle: ", "\n")
+res$fittedModel[[1]]$paramEstim$v_K
+# Paramètres pi et alpha du meilleur modèle
+cat("------------------------------------", "\n")
+cat("Paramètre pi du meilleur modèle: ", "\n")
+res$fittedModel[[1]]$paramEstim$list_pi
+cat("------------------------------------", "\n")
+cat("Paramètre alpha du meilleur modèle: ", "\n")
+res$fittedModel[[1]]$paramEstim$list_theta 
+# res$fittedModel[[1]]$paramEstim$tau # Mean Field Approximation parameters
+```
+```{r}
+cat("Clustering des neuf premières espèces de fourmis:", "\n")
+cat("_________________________________________________", "\n")
+res$fittedModel[[1]]$paramEstim$Z$ants[1:9]
+```
+
+```{r}
+par(mfrow = c(1,3))
+barplot(table(res$fittedModel[[1]]$paramEstim$Z$plants), col="darkolivegreen3", main="plantes", xlab="clusters", ylab="effectif")
+barplot(table(res$fittedModel[[1]]$paramEstim$Z$ants), col="gold", main="fourmis", xlab="clusters", ylab="effectif")
+barplot(table(res$fittedModel[[1]]$paramEstim$Z$flovis), col="cadetblue3", main="pollinisateurs", xlab="clusters", ylab="effectif")
+```
+
+
+
+```{r}
+# Resulting clusters --------------------------------------------------------------------------
+cls = res$fittedModel[[1]]$paramEstim$v_K
+cls
+
+par(cex = .7)
+plot(res$fittedModel[[1]]$paramEstim$Z$plants, 
+     col = res$fittedModel[[1]]$paramEstim$Z$plants,
+     pch = 18,
+     main = 'Resulting clustering for the plants FG',
+     xlab = '', ylab = 'clusters')
+
+par(cex = .7)
+plot(res$fittedModel[[1]]$paramEstim$Z$ants, 
+     col = res$fittedModel[[1]]$paramEstim$Z$ants,
+     pch = 18,
+     main = 'Resulting clustering for the ants FG',
+     xlab = '', ylab = 'clusters')
+
+par(cex = .7)
+plot(res$fittedModel[[1]]$paramEstim$Z$birds, 
+     col = res$fittedModel[[1]]$paramEstim$Z$birds,
+     pch = 18,
+     main = 'Resulting clustering for the birds FG',
+     xlab = '', ylab = 'clusters')
+
+par(cex = .7)
+plot(res$fittedModel[[1]]$paramEstim$Z$flovis, 
+     col = res$fittedModel[[1]]$paramEstim$Z$flovis,
+     pch = 18,
+     main = 'Resulting clustering for the flovis FG',
+     xlab = '', ylab = 'clusters')
+```
+
+```{r}
+# Plot of the resulting network ---------------------------------------------------------------
+par(cex = .7)
+plotMBM(res,
+        mycol= c("darkolivegreen3", "gold", "tomato","cadetblue3"),
+        whichModel = 9)
+title('Iteration 1')
+
+par(cex = .7)
+plotMBM(res,
+        mycol= c("darkolivegreen3", "gold", "tomato","cadetblue3"),
+        whichModel = 5)
+title('Iteration 5')
+
+par(cex = .7)
+plotMBM(res,
+        mycol= c("darkolivegreen3", "gold", "tomato","cadetblue3"),
+        whichModel = 1)
+title('Best Model - last iteration')
+```
+
+```{r}
+# Simulation de données -----------------------------------------------------------------------
+v_NQ =  c(250, 125, 150)                       #size of each FG
+
+# Parameters pi
+list_pi = list(c(0.15, 0.25, 0.15, 0.20, 0.15, 0.15), 
+               c(0.2, 0.8),
+               c(0.25, 0.35, 0.40))    #proportion of each block in each  FG
+
+cat('pi1 \n')
+print(list_pi[[1]])
+
+cat('pi2 \n')
+print(list_pi[[2]])
+
+cat('pi3 \n')
+print(list_pi[[3]])
+
+
+# Interactions between Functional groups
+E = rbind(c(1,2), c(2,2), c(2,3))       # Interactions A-B, B-B, B-C
+typeInter = c( "inc", "inc", "inc")
+v_distrib = c('bernoulli','bernoulli','bernoulli')
+
+# Connectivity arameters
+list_theta <- list()
+list_theta[[1]] <- matrix(c(0.70, 0.90, 
+                            0.90, 0.00,
+                            0.10, 0.40,
+                            0.20, 0.40,
+                            0.15, 0.28,
+                            0.23, 0.85),
+                          6,2)
+cat('alpha_12 \n')
+print(list_theta[[1]])
+
+list_theta[[2]] <- matrix(c(0.7, 0.8,
+                            0.4, 0.2),
+                          2,2)
+cat('alpha_22 \n')
+list_theta[[2]]
+
+list_theta[[3]] <- matrix(c(0.7, 0.9, 0.9,
+                            0.1, 0.4, 0.7),
+                          2, 3)
+cat('alpha_23 \n')
+list_theta[[3]]
+
+# Simulation
+dataSim <- rMBM(v_NQ, E , typeInter, v_distrib, list_pi,
+                list_theta, keepClassif  = TRUE)
+
+```
+
+```{r}
+# Simulated Data set construction  ------------------------------------------------------------
+G12 = defineNetwork(dataSim$list_Net[[1]]$mat, 
+                    typeInter = 'inc',
+                    rowFG = '1',
+                    colFG = '2')
+
+G22 = defineNetwork(dataSim$list_Net[[2]]$mat, 
+                    typeInter = 'inc',
+                    rowFG = '2',
+                    colFG = '2')
+
+G23 = defineNetwork(dataSim$list_Net[[3]]$mat, 
+                    typeInter = 'inc',
+                    rowFG = '2',
+                    colFG = '3')
+
+sim.lis = list(G12, G22, G23)
+```
+
+```{r}
+# Simulated data set - Inference --------------------------------------------------------------
+sim.res = multipartiteBM(sim.lis, 
+                     v_distrib = c('bernoulli', 'bernoulli', 'bernoulli'),
+                     initBM = FALSE,
+                     keep = TRUE,
+                     verbose = TRUE, 
+                     v_Kmin = 1,
+                     v_Kmax = 50)
+```
+
+```{r}
+# Simulated DAta set - Resulting ICL values ---------------------------------------------------
+sim.ICL = numeric(length = length(sim.res$fittedModel))
+for (i in 1:length(sim.res$fittedModel)){
+  sim.ICL[i] = sim.res$fittedModel[[i]]$ICL
+}
+sim.ICL = sort(sim.ICL)
+
+par(cex = .7)
+plot(sim.ICL, main = 'Valeurs ICL à chaque itération',
+     xlab = 'itération',
+     ylab = 'ICL',
+     pch = 19, 
+     cex = 0.8,
+     type = 'o')
+```
+
+```{r}
+# Simulated Data set - Model parameters -------------------------------------------------------
+sim.lis_pi = sim.res$fittedModel[[1]]$paramEstim$list_pi ; sim.lis_pi          # Parameters pi
+sim.lis_theta = sim.res$fittedModel[[1]]$paramEstim$list_theta ; sim.lis_theta # Parameters Theta
+```
+
+
+```{r}
+# Simulated Data set - Resulting clusters -----------------------------------------------------
+sim.cls = sim.res$fittedModel[[1]]$paramEstim$v_K
+sim.cls
+
+par(cex = .7)
+plot(sim.res$fittedModel[[1]]$paramEstim$Z$`1`, 
+     col = sim.res$fittedModel[[1]]$paramEstim$Z$`1`,
+     pch = 18,
+     main = 'Resulting clustering for the FG1',
+     xlab = '', ylab = 'clusters')
+
+par(cex = .7)
+plot(sim.res$fittedModel[[1]]$paramEstim$Z$`2`, 
+     col = sim.res$fittedModel[[1]]$paramEstim$Z$`2`,
+     pch = 18,
+     main = 'Resulting clustering for the FG2',
+     xlab = '', ylab = 'clusters')
+
+par(cex = .7)
+plot(sim.res$fittedModel[[1]]$paramEstim$Z$`3`, 
+     col = sim.res$fittedModel[[1]]$paramEstim$Z$`3`,
+     pch = 18,
+     main = 'Resulting clustering for the FG3',
+     xlab = '', ylab = 'clusters')
+```
+
+```{r}
+# Simulated Data set - Plots of the resulting network -----------------------------------------
+par(cex = .7)
+plotMBM(sim.res,
+        mycol= c("darkolivegreen3", "gold","cadetblue3"),
+        whichModel = 9)
+title('Iteration 1')
+
+par(cex = .7)
+plotMBM(sim.res,
+        mycol= c("darkolivegreen3", "gold","cadetblue3"),
+        whichModel = 5)
+title('Iteration 5')
+
+par(cex = .7)
+plotMBM(sim.res,
+        mycol= c("darkolivegreen3", "gold","cadetblue3"),
+        whichModel = 1)
+title('Best Model - last iteration')
+```
+
+### References
+___
+Avner Bar-Hen, Pierre Barbillon, Sophie Donnet. "Block Models for Generalized Multipartite Networks: Applications in Ecology and Ethnobiology." Statistical Modelling, Dec. 2020, doi:10.1177/1471082X20963254.
